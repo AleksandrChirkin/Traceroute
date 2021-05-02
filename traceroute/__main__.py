@@ -1,18 +1,17 @@
 from argparse import ArgumentParser
 from traceroute import Tracer
-from typing import Dict
 import socket
 
 
-def parse_args() -> Dict:
+def parse_args():
     parser = ArgumentParser(description='Traceroute')
     parser.add_argument('host', help='Host you want to trace')
-    return parser.parse_args().__dict__
+    return parser.parse_args()
 
 
 if __name__ == '__main__':
     args = parse_args()
-    destination = args['host']
+    destination = args.host
     try:
         tracer = Tracer(destination)
         for result in tracer.trace():
@@ -21,5 +20,5 @@ if __name__ == '__main__':
         print(f'Address {destination} is invalid')
         exit(1)
     except PermissionError:
-        print(f'Not enough rights. Try sudo or run as admin')
+        print('Not enough rights')
         exit(1)

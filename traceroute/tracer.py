@@ -1,6 +1,7 @@
 from traceroute import IcmpPacket, TraceResult
 from typing import Dict, Generator, Optional
 import socket
+import struct
 
 
 class Tracer:
@@ -46,11 +47,14 @@ class Tracer:
             data = data.decode()
             for field in ('netname', 'country', 'route', 'origin'):
                 try:
-                    field_start = data.rindex(field)
+                    field_start = data.rindex(f'{field}:')
                     field_end = data.index('\n', field_start)
                     field_data = data[field_start:field_end].\
                         replace(' ', '').split(':')[1]
                     whois_data[field] = field_data
+                    if 'country' in whois_data.keys() and\
+                            whois_data['country'] == 'EU':
+                        whois_data['country'] = ''
                 except ValueError:
                     continue
         return whois_data
@@ -68,14 +72,27 @@ class Tracer:
                 try:
                     data, addr = receiver.recvfrom(1024)
                     whois_data = self.get_whois_data(addr[0])
-                    icmp_response = IcmpPacket.from_bytes(data[20:])
-                    trace_result = TraceResult.from_whois_data\
+                    icmp_response = self.get_icmp_packet(data[20:])
+                    trace_result = self.get_trace_result\
                         (self.destination, n, whois_data)
                     n += 1
                     yield trace_result
-                    if icmp_response.code == icmp_response.packet_type == 0:
+                    if icmp_response.code == icmp_response.type == 0:
                         break
                 except socket.timeout:
                     continue
                 finally:
                     self.ttl += 1
+
+    @staticmethod
+    def get_icmp_packet(data: bytes) -> IcmpPacket:
+        return IcmpPacket(*struct.unpack('!BB', data[:2]))
+
+    @staticmethod
+    def get_trace_result(dst: str, n: int, data: Dict) -> TraceResult:
+        is_local = data is None
+        route = data.get('route', '') if not is_local else ''
+        net_name = data.get('netname', '') if not is_local else ''
+        as_zone = data.get('origin', '') if not is_local else ''
+        country = data.get('country', '') if not is_local else ''
+        return TraceResult(route, n, net_name, as_zone, country, is_local)
