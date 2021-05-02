@@ -1,5 +1,5 @@
 from traceroute import IcmpPacket, TraceResult
-from typing import Dict, Generator, Optional
+from typing import Dict, Iterable, Optional
 import socket
 import struct
 
@@ -45,21 +45,19 @@ class Tracer:
                     break
                 data += temp_data
             data = data.decode()
-            for field in ('netname', 'country', 'route', 'origin'):
+            for field in ('netname', 'country', 'origin'):
                 try:
                     field_start = data.rindex(f'{field}:')
                     field_end = data.index('\n', field_start)
                     field_data = data[field_start:field_end].\
                         replace(' ', '').split(':')[1]
                     whois_data[field] = field_data
-                    if 'country' in whois_data.keys() and\
-                            whois_data['country'] == 'EU':
-                        whois_data['country'] = ''
                 except ValueError:
                     continue
+        whois_data['route'] = addr
         return whois_data
 
-    def trace(self) -> Generator[TraceResult, None, None]:
+    def trace(self) -> Iterable[TraceResult]:
         n = 1
         while self.ttl <= self.max_hops:
             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM,
@@ -73,8 +71,7 @@ class Tracer:
                     data, addr = receiver.recvfrom(1024)
                     whois_data = self.get_whois_data(addr[0])
                     icmp_response = self.get_icmp_packet(data[20:])
-                    trace_result = self.get_trace_result\
-                        (self.destination, n, whois_data)
+                    trace_result = self.get_trace_result(addr[0], n, whois_data)
                     n += 1
                     yield trace_result
                     if icmp_response.code == icmp_response.type == 0:
@@ -89,9 +86,9 @@ class Tracer:
         return IcmpPacket(*struct.unpack('!BB', data[:2]))
 
     @staticmethod
-    def get_trace_result(dst: str, n: int, data: Dict) -> TraceResult:
+    def get_trace_result(addr: str, n: int, data: Dict) -> TraceResult:
         is_local = data is None
-        route = data.get('route', '') if not is_local else ''
+        route = data.get('route', '') if not is_local else addr
         net_name = data.get('netname', '') if not is_local else ''
         as_zone = data.get('origin', '') if not is_local else ''
         country = data.get('country', '') if not is_local else ''
