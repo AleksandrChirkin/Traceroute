@@ -71,7 +71,8 @@ class Tracer:
                     data, addr = receiver.recvfrom(1024)
                     whois_data = self.get_whois_data(addr[0])
                     icmp_response = self.get_icmp_packet(data[20:])
-                    trace_result = self.get_trace_result(addr[0], n, whois_data)
+                    trace_result = self.get_trace_result(addr[0], n,
+                                                         whois_data)
                     n += 1
                     yield trace_result
                     if icmp_response.code == icmp_response.type == 0:

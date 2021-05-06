@@ -22,3 +22,5 @@ if __name__ == '__main__':
     except PermissionError:
         print('Not enough rights')
         exit(1)
+    except KeyboardInterrupt:
+        print('Terminated.')
